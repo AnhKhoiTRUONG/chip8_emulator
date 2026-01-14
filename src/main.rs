@@ -188,24 +188,30 @@ impl Chip8 {
         let x = (self.opcode >> 8) & 0xF;
         let y = (self.opcode >> 4) & 0xF;
 
-        self.registers[x as usize] =
-            self.registers[x as usize].wrapping_add(self.registers[y as usize]);
+        let (res, overflow) =
+            self.registers[x as usize].overflowing_add(self.registers[y as usize]);
+        self.registers[x as usize] = res;
+        self.registers[0xF] = if overflow { 0 } else { 1 };
     }
 
     fn sub_xy(&mut self) {
         let x = (self.opcode >> 8) & 0xF;
         let y = (self.opcode >> 4) & 0xF;
 
-        self.registers[x as usize] =
-            self.registers[x as usize].wrapping_sub(self.registers[y as usize]);
+        let (res, overflow) =
+            self.registers[x as usize].overflowing_sub(self.registers[y as usize]);
+        self.registers[x as usize] = res;
+        self.registers[0xF] = if overflow { 0 } else { 1 };
     }
 
     fn sub_yx(&mut self) {
         let x = (self.opcode >> 8) & 0xF;
         let y = (self.opcode >> 4) & 0xF;
 
-        self.registers[x as usize] =
-            self.registers[y as usize].wrapping_sub(self.registers[x as usize]);
+        let (res, overflow) =
+            self.registers[y as usize].overflowing_sub(self.registers[x as usize]);
+        self.registers[x as usize] = res;
+        self.registers[0xF] = if overflow { 0 } else { 1 };
     }
 
     fn shift_right(&mut self) {
@@ -224,7 +230,7 @@ impl Chip8 {
 
         let vy = self.registers[y as usize];
 
-        self.registers[0xF] = vy & 0x1;
+        self.registers[0xF] = (vy >> 7) & 0x1;
         self.registers[x as usize] = vy << 1;
     }
 
@@ -288,7 +294,7 @@ impl Chip8 {
         let num = self.registers[((self.opcode >> 8) & 0xF) as usize];
         self.mem[self.index_register as usize] = (num / 100) % 10;
         self.mem[(self.index_register + 1) as usize] = (num / 10) % 10;
-        self.mem[(self.index_register + 1) as usize] = num % 10;
+        self.mem[(self.index_register + 2) as usize] = num % 10;
     }
 
     fn store_mem(&mut self) {
@@ -311,7 +317,7 @@ impl Chip8 {
         let y_start = self.registers[((self.opcode >> 4) & 0xF) as usize] % 32;
         let n = self.opcode & 0xF;
 
-        self.registers[15] = 0;
+        self.registers[0xF] = 0;
         let mut bit;
 
         for i in 0..n {
@@ -385,6 +391,10 @@ impl Chip8 {
     fn update_timers(&mut self) {
         if self.delay_timer > 0 {
             self.delay_timer -= 1;
+        }
+
+        if self.sound_timer > 0 {
+            self.sound_timer -= 1;
         }
     }
 
@@ -515,7 +525,7 @@ fn key2btn(key: Keycode) -> Option<usize> {
 fn main() -> std::io::Result<()> {
     let mut prog = Chip8::new();
 
-    prog.load_rom("5-quirks.ch8")?;
+    prog.load_rom("tetris.ch8")?;
 
     if let Err(e) = prog.draw() {
         println!("Hehe");
