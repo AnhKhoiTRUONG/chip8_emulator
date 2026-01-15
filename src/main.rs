@@ -480,7 +480,7 @@ impl Chip8 {
                 }
             }
 
-            for _ in 0..10 {
+            for _ in 0..12 {
                 self.tick();
             }
             if self.sound_timer == 0 {
@@ -543,12 +543,17 @@ fn key2btn(key: Keycode) -> Option<usize> {
 }
 
 fn main() -> std::io::Result<()> {
-    let mut prog = Chip8::new();
+    let args: Vec<String> = env::args().collect();
+    if args.len() != 2 {
+        println!("Only 1 file name is allowed");
+    } else {
+        let mut prog = Chip8::new();
 
-    prog.load_rom("pong.ch8")?;
+        prog.load_rom(args[1].as_str())?;
 
-    if prog.draw().is_err() {
-        println!("Oops, something wrong");
+        if prog.draw().is_err() {
+            println!("Oops, something wrong");
+        }
     }
     Ok(())
 }
