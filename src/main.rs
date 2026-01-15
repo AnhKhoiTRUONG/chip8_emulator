@@ -3,14 +3,16 @@ use std::thread;
 use std::time::Duration;
 use std::{
     fs::File,
-    io::{BufRead, BufReader, Bytes, Read},
-    mem,
+    io::{BufReader, Read},
 };
+
+use rodio::OutputStreamBuilder;
+use rodio::{Source, source::SineWave};
 
 use rand::Rng;
 
 use sdl2::rect::Point;
-use sdl2::{event::Event, keyboard::Keycode, pixels::Color, rect::Rect};
+use sdl2::{event::Event, keyboard::Keycode, pixels::Color};
 
 const START_ADDRESS: u16 = 0x200;
 const FONTSET_SIZE: usize = 80;
@@ -421,6 +423,7 @@ impl Chip8 {
     }
 
     fn draw(&mut self) -> Result<(), String> {
+        // Set up sdl2 for graphics
         let sdl_context = sdl2::init()?;
         let video_subsystem = sdl_context.video()?;
 
@@ -435,6 +438,17 @@ impl Chip8 {
         let mut canvas = window.into_canvas().build().map_err(|e| e.to_string())?;
 
         canvas.set_logical_size(64, 32).map_err(|e| e.to_string())?;
+
+        // Sound with rodio
+        let stream_handle = OutputStreamBuilder::open_default_stream().expect("stream");
+
+        let sink = rodio::Sink::connect_new(&stream_handle.mixer());
+
+        let source = SineWave::new(440.0).amplify(0.10); // Volume at 10%
+        // stream_handle.mixer().add(source);
+        sink.append(source);
+        sink.pause();
+        // sink.sleep_until_end();
 
         'main: loop {
             for event in event_pump.poll_iter() {
@@ -469,7 +483,13 @@ impl Chip8 {
             for _ in 0..10 {
                 self.tick();
             }
+            if self.sound_timer == 0 {
+                sink.pause();
+            } else if self.sound_timer > 0 && sink.is_paused() {
+                sink.play();
+            }
             self.update_timers();
+
             // Set the background
             canvas.set_draw_color(Color::RGB(0, 0, 0));
             canvas.clear();
@@ -525,10 +545,10 @@ fn key2btn(key: Keycode) -> Option<usize> {
 fn main() -> std::io::Result<()> {
     let mut prog = Chip8::new();
 
-    prog.load_rom("tetris.ch8")?;
+    prog.load_rom("pong.ch8")?;
 
-    if let Err(e) = prog.draw() {
-        println!("Hehe");
+    if prog.draw().is_err() {
+        println!("Oops, something wrong");
     }
     Ok(())
 }
